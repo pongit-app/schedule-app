@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F2F5FA">
 <meta name="apple-mobile-web-app-title" content="予定よみとり">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
@@ -13,9 +14,12 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root{
-    --bg:#0f1420; --card:#182031; --card2:#1e2739; --line:#2c374d;
-    --fg:#e8edf7; --sub:#98a4bd; --accent:#4f8cff; --accent2:#2ecc9a;
-    --warn:#ffb020; --danger:#ff6b6b; --radius:14px;
+    color-scheme: light;
+    --bg:#F2F5FA; --card:#FFFFFF; --card2:#F6F8FC; --line:#E1E7F1; --line2:#CFD8E8;
+    --fg:#18202E; --sub:#66748A; --accent:#2F6FED; --accent2:#0FA36B;
+    --danger:#D2374C;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(24,32,46,.05), 0 10px 24px -18px rgba(24,32,46,.35);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   body{
@@ -25,32 +29,35 @@
     padding:0 0 100px; padding-bottom:calc(100px + env(safe-area-inset-bottom));
   }
   header{
-    position:sticky; top:0; z-index:20; background:rgba(15,20,32,.92);
+    position:sticky; top:0; z-index:20; background:rgba(255,255,255,.94);
     backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
     padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top));
     display:flex; align-items:center; gap:10px;
   }
   header h1{font-size:17px; margin:0; font-weight:700; letter-spacing:.02em}
   header .status{margin-left:auto; font-size:12px; color:var(--sub)}
-  header .status.ok{color:var(--accent2)}
+  header .status.ok{color:var(--accent2); font-weight:700}
   main{padding:16px; max-width:720px; margin:0 auto}
-  section{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:14px}
-  h2{font-size:14px; margin:0 0 12px; color:var(--sub); font-weight:700; letter-spacing:.04em}
+  section{background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+          padding:16px; margin-bottom:14px; box-shadow:var(--shadow)}
+  h2{font-size:14px; margin:0 0 12px; color:var(--sub); font-weight:700; letter-spacing:.04em;
+     display:flex; align-items:center}
   .step{display:inline-block; background:var(--accent); color:#fff; width:22px; height:22px; line-height:22px;
-        text-align:center; border-radius:50%; font-size:12px; font-weight:700; margin-right:8px}
+        text-align:center; border-radius:50%; font-size:12px; font-weight:700; margin-right:8px; flex:0 0 auto}
   button{
     font:inherit; font-weight:700; border:none; border-radius:12px; padding:14px 18px;
     background:var(--accent); color:#fff; cursor:pointer; width:100%; transition:.15s;
   }
-  button:active{transform:scale(.985)}
-  button:disabled{opacity:.4; cursor:not-allowed}
-  button.sub{background:var(--card2); color:var(--fg); border:1px solid var(--line)}
+  button:active{transform:scale(.985); filter:brightness(.95)}
+  button:disabled{opacity:.42; cursor:not-allowed}
+  button.sub{background:#fff; color:var(--fg); border:1px solid var(--line2)}
   button.go{background:var(--accent2)}
   button.small{width:auto; padding:9px 14px; font-size:13px; border-radius:10px}
   input,textarea,select{
-    font:inherit; width:100%; background:var(--card2); color:var(--fg);
-    border:1px solid var(--line); border-radius:10px; padding:11px 12px;
+    font:inherit; width:100%; background:#fff; color:var(--fg);
+    border:1px solid var(--line2); border-radius:10px; padding:11px 12px;
   }
+  input:focus,textarea:focus,select:focus{outline:2px solid rgba(47,111,237,.35); outline-offset:1px; border-color:var(--accent)}
   input[type=checkbox]{width:22px; height:22px; accent-color:var(--accent2); vertical-align:middle}
   label.f{display:block; font-size:12px; color:var(--sub); margin:10px 0 4px}
   .row{display:flex; gap:8px}
@@ -59,33 +66,33 @@
   .hint a{color:var(--accent)}
   .thumbs{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}
   .thumbs div{position:relative}
-  .thumbs img{width:76px; height:76px; object-fit:cover; border-radius:10px; border:1px solid var(--line)}
+  .thumbs img{width:76px; height:76px; object-fit:cover; border-radius:10px; border:1px solid var(--line2)}
   .thumbs button{position:absolute; top:-6px; right:-6px; width:24px; height:24px; padding:0;
-                 border-radius:50%; background:var(--danger); font-size:14px; line-height:24px}
-  .bar{height:6px; background:var(--card2); border-radius:99px; overflow:hidden; margin-top:12px}
+                 border-radius:50%; background:var(--danger); font-size:14px; line-height:24px;
+                 box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .bar{height:6px; background:var(--card2); border:1px solid var(--line); border-radius:99px; overflow:hidden; margin-top:12px}
   .bar>i{display:block; height:100%; width:0; background:var(--accent); transition:width .3s}
   .ev{background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px}
-  .ev.off{opacity:.45}
+  .ev.off{opacity:.5}
   .ev .top{display:flex; align-items:center; gap:10px; margin-bottom:6px}
-  .ev .top .when{font-size:12.5px; color:var(--accent2); font-weight:700}
+  .ev .top .when{font-size:12.5px; color:#0B7A51; font-weight:700; flex:1; min-width:0}
   .ev .top .del{margin-left:auto; flex:0 0 auto; width:auto; white-space:nowrap; padding:5px 10px;
-                font-size:12px; background:transparent; color:var(--sub);
-                border:1px solid var(--line); border-radius:8px}
-  .ev .top .when{flex:1; min-width:0}
-  .ev .src{font-size:11.5px; color:var(--sub); margin-top:8px; word-break:break-all}
+                font-size:12px; background:#fff; color:var(--sub);
+                border:1px solid var(--line2); border-radius:8px}
   .fixed{
     position:fixed; left:0; right:0; bottom:0; z-index:30; padding:12px 16px;
     padding-bottom:calc(12px + env(safe-area-inset-bottom));
-    background:rgba(15,20,32,.94); backdrop-filter:blur(10px); border-top:1px solid var(--line);
+    background:rgba(255,255,255,.95); backdrop-filter:blur(10px); border-top:1px solid var(--line);
   }
   .log{font-size:13px; margin-top:10px}
-  .log div{padding:6px 0; border-bottom:1px dashed var(--line)}
+  .log div{padding:6px 0; border-bottom:1px dashed var(--line2)}
   .log .ng{color:var(--danger)}
-  .log .okk{color:var(--accent2)}
+  .log .okk{color:#0B7A51}
   details summary{cursor:pointer; font-size:13px; color:var(--sub); padding:4px 0}
   .empty{color:var(--sub); font-size:14px; text-align:center; padding:22px 0}
-  .badge{display:inline-block; font-size:11px; background:var(--card2); border:1px solid var(--line);
+  .badge{display:inline-block; font-size:11px; background:var(--card2); border:1px solid var(--line2);
          border-radius:99px; padding:2px 9px; color:var(--sub); margin-left:6px}
+  .src{font-size:11.5px; color:var(--sub); margin-top:8px; word-break:break-all}
 </style>
 </head>
 <body>
