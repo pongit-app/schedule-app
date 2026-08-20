@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="予定よみとり">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<title>予定よみとり｜写真からGoogleカレンダー登録</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --bg:#0f1420; --card:#182031; --card2:#1e2739; --line:#2c374d;
+    --fg:#e8edf7; --sub:#98a4bd; --accent:#4f8cff; --accent2:#2ecc9a;
+    --warn:#ffb020; --danger:#ff6b6b; --radius:14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+    font-size:16px; line-height:1.6;
+    padding:0 0 100px; padding-bottom:calc(100px + env(safe-area-inset-bottom));
+  }
+  header{
+    position:sticky; top:0; z-index:20; background:rgba(15,20,32,.92);
+    backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
+    padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top));
+    display:flex; align-items:center; gap:10px;
+  }
+  header h1{font-size:17px; margin:0; font-weight:700; letter-spacing:.02em}
+  header .status{margin-left:auto; font-size:12px; color:var(--sub)}
+  header .status.ok{color:var(--accent2)}
+  main{padding:16px; max-width:720px; margin:0 auto}
+  section{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:14px}
+  h2{font-size:14px; margin:0 0 12px; color:var(--sub); font-weight:700; letter-spacing:.04em}
+  .step{display:inline-block; background:var(--accent); color:#fff; width:22px; height:22px; line-height:22px;
+        text-align:center; border-radius:50%; font-size:12px; font-weight:700; margin-right:8px}
+  button{
+    font:inherit; font-weight:700; border:none; border-radius:12px; padding:14px 18px;
+    background:var(--accent); color:#fff; cursor:pointer; width:100%; transition:.15s;
+  }
+  button:active{transform:scale(.985)}
+  button:disabled{opacity:.4; cursor:not-allowed}
+  button.sub{background:var(--card2); color:var(--fg); border:1px solid var(--line)}
+  button.go{background:var(--accent2)}
+  button.small{width:auto; padding:9px 14px; font-size:13px; border-radius:10px}
+  input,textarea,select{
+    font:inherit; width:100%; background:var(--card2); color:var(--fg);
+    border:1px solid var(--line); border-radius:10px; padding:11px 12px;
+  }
+  input[type=checkbox]{width:22px; height:22px; accent-color:var(--accent2); vertical-align:middle}
+  label.f{display:block; font-size:12px; color:var(--sub); margin:10px 0 4px}
+  .row{display:flex; gap:8px}
+  .row>*{flex:1; min-width:0}
+  .hint{font-size:12.5px; color:var(--sub); margin-top:8px; line-height:1.7}
+  .hint a{color:var(--accent)}
+  .thumbs{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}
+  .thumbs div{position:relative}
+  .thumbs img{width:76px; height:76px; object-fit:cover; border-radius:10px; border:1px solid var(--line)}
+  .thumbs button{position:absolute; top:-6px; right:-6px; width:24px; height:24px; padding:0;
+                 border-radius:50%; background:var(--danger); font-size:14px; line-height:24px}
+  .bar{height:6px; background:var(--card2); border-radius:99px; overflow:hidden; margin-top:12px}
+  .bar>i{display:block; height:100%; width:0; background:var(--accent); transition:width .3s}
+  .ev{background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px}
+  .ev.off{opacity:.45}
+  .ev .top{display:flex; align-items:center; gap:10px; margin-bottom:6px}
+  .ev .top .when{font-size:12.5px; color:var(--accent2); font-weight:700}
+  .ev .top .del{margin-left:auto; flex:0 0 auto; width:auto; white-space:nowrap; padding:5px 10px;
+                font-size:12px; background:transparent; color:var(--sub);
+                border:1px solid var(--line); border-radius:8px}
+  .ev .top .when{flex:1; min-width:0}
+  .ev .src{font-size:11.5px; color:var(--sub); margin-top:8px; word-break:break-all}
+  .fixed{
+    position:fixed; left:0; right:0; bottom:0; z-index:30; padding:12px 16px;
+    padding-bottom:calc(12px + env(safe-area-inset-bottom));
+    background:rgba(15,20,32,.94); backdrop-filter:blur(10px); border-top:1px solid var(--line);
+  }
+  .log{font-size:13px; margin-top:10px}
+  .log div{padding:6px 0; border-bottom:1px dashed var(--line)}
+  .log .ng{color:var(--danger)}
+  .log .okk{color:var(--accent2)}
+  details summary{cursor:pointer; font-size:13px; color:var(--sub); padding:4px 0}
+  .empty{color:var(--sub); font-size:14px; text-align:center; padding:22px 0}
+  .badge{display:inline-block; font-size:11px; background:var(--card2); border:1px solid var(--line);
+         border-radius:99px; padding:2px 9px; color:var(--sub); margin-left:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📅 予定よみとり</h1>
+  <span class="status" id="authStatus">未連携</span>
+</header>
+
+<main>
+
+<section id="secAuth">
+  <h2><span class="step">1</span>Googleカレンダー連携</h2>
+  <label class="f">クライアントID（初回だけ貼り付け）</label>
+  <input id="clientId" placeholder="xxxxxxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+  <div class="row" style="margin-top:10px">
+    <button id="btnAuth">Googleと連携する</button>
+    <button id="btnLogout" class="sub" style="flex:0 0 90px">解除</button>
+  </div>
+  <label class="f">登録先カレンダー</label>
+  <select id="calSel"><option value="primary">メインカレンダー</option></select>
+  <div class="hint">クライアントIDの取り方は <b>schedule-setup-guide.md</b> を見てね。一度入れたらこの端末に保存されるので次回から入力不要です。</div>
+</section>
+
+<section>
+  <h2><span class="step">2</span>画像を選ぶ</h2>
+  <input type="file" id="file" accept="image/*" multiple hidden>
+  <button id="btnPick">📷 写真・スクショを選ぶ</button>
+  <div class="thumbs" id="thumbs"></div>
+  <div class="hint">複数枚まとめてOK。カメラで撮った紙のチラシ、LINEのスクショ、月間予定表どれでも。</div>
+</section>
+
+<section>
+  <h2><span class="step">3</span>文字を読み取る</h2>
+  <button id="btnOcr" class="go" disabled>🔍 読み取って予定を抜き出す</button>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="hint" id="ocrMsg">画像を選ぶと押せるようになります。初回は日本語データの読み込みで20秒ほどかかります。</div>
+  <details style="margin-top:10px">
+    <summary>読み取った文字を見る／直して再解析</summary>
+    <textarea id="ocrText" rows="8" style="margin-top:8px" placeholder="ここに読み取り結果が入ります。直接貼り付けてもOK。"></textarea>
+    <button id="btnReparse" class="sub small" style="margin-top:8px">このテキストから予定を抜き出す</button>
+  </details>
+</section>
+
+<section>
+  <h2><span class="step">4</span>予定を確認・修正<span class="badge" id="evCount">0件</span></h2>
+  <div id="events"><div class="empty">まだ予定がありません</div></div>
+  <button id="btnAdd" class="sub small">＋ 手入力で1件追加</button>
+  <div class="log" id="log"></div>
+</section>
+
+</main>
+
+<div class="fixed">
+  <button id="btnRegister" class="go" disabled>カレンダーに登録する</button>
+</div>
+
+<script>
+/* ============================================================
+   予定よみとり  —  画像OCR → 日付抽出 → Googleカレンダー登録
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+const LS_CID = 'sched.clientId';
+let images = [];        // {name, dataUrl}
+let events = [];        // 予定候補
+let token = null;       // アクセストークン
+let tokenExp = 0;
+let tokenClient = null;
+let worker = null;
+
+/* ---------- 0. 起動 ---------- */
+$('#clientId').value = localStorage.getItem(LS_CID) || '';
+$('#clientId').addEventListener('change', e => localStorage.setItem(LS_CID, e.target.value.trim()));
+try {
+  const t = JSON.parse(sessionStorage.getItem('sched.token') || 'null');
+  if (t && t.exp > Date.now() + 60000) { token = t.tk; tokenExp = t.exp; setAuthUI(true); loadCalendars(); }
+} catch (e) {}
+
+/* ---------- 1. 認証 ---------- */
+function setAuthUI(ok) {
+  $('#authStatus').textContent = ok ? '連携ずみ ✓' : '未連携';
+  $('#authStatus').className = 'status' + (ok ? ' ok' : '');
+  refreshRegisterBtn();
+}
+function getToken(cb) {
+  if (token && tokenExp > Date.now() + 60000) return cb(token);
+  const cid = $('#clientId').value.trim();
+  if (!cid) { alert('先にクライアントIDを貼り付けてください'); return; }
+  localStorage.setItem(LS_CID, cid);
+  if (!window.google || !google.accounts) { alert('Googleの読み込み中です。数秒待って もう一度押してください'); return; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cid,
+    scope: SCOPE,
+    callback: (res) => {
+      if (res.error) { alert('連携に失敗しました: ' + res.error); return; }
+      token = res.access_token;
+      tokenExp = Date.now() + (res.expires_in || 3600) * 1000;
+      sessionStorage.setItem('sched.token', JSON.stringify({ tk: token, exp: tokenExp }));
+      setAuthUI(true);
+      loadCalendars();
+      cb(token);
+    }
+  });
+  tokenClient.requestAccessToken({ prompt: token ? '' : 'consent' });
+}
+$('#btnAuth').onclick = () => getToken(() => {});
+$('#btnLogout').onclick = () => {
+  if (token && window.google) google.accounts.oauth2.revoke(token, () => {});
+  token = null; tokenExp = 0; sessionStorage.removeItem('sched.token');
+  $('#calSel').innerHTML = '<option value="primary">メインカレンダー</option>';
+  setAuthUI(false);
+};
+async function loadCalendars() {
+  try {
+    const r = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=writer',
+      { headers: { Authorization: 'Bearer ' + token } });
+    if (!r.ok) return;
+    const d = await r.json();
+    const sel = $('#calSel'); const prev = sel.value;
+    sel.innerHTML = '';
+    (d.items || []).forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.id; o.textContent = c.summary + (c.primary ? '（メイン）' : '');
+      if (c.primary) o.selected = true;
+      sel.appendChild(o);
+    });
+    if (!sel.options.length) sel.innerHTML = '<option value="primary">メインカレンダー</option>';
+    const saved = localStorage.getItem('sched.cal') || prev;
+    if (saved && [...sel.options].some(o => o.value === saved)) sel.value = saved;
+  } catch (e) {}
+}
+$('#calSel').addEventListener('change', e => localStorage.setItem('sched.cal', e.target.value));
+
+/* ---------- 2. 画像 ---------- */
+$('#btnPick').onclick = () => $('#file').click();
+$('#file').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
+window.addEventListener('paste', e => {
+  const fs = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith('image/'));
+  if (fs.length) addFiles(fs);
+});
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  const fs = [...(e.dataTransfer?.files || [])].filter(f => f.type.startsWith('image/'));
+  if (fs.length) addFiles(fs);
+});
+function addFiles(files) {
+  files.forEach(f => {
+    const r = new FileReader();
+    r.onload = () => { images.push({ name: f.name, dataUrl: r.result }); drawThumbs(); };
+    r.readAsDataURL(f);
+  });
+}
+function drawThumbs() {
+  const box = $('#thumbs'); box.innerHTML = '';
+  images.forEach((im, i) => {
+    const d = document.createElement('div');
+    d.innerHTML = '<img src="' + im.dataUrl + '"><button title="削除">×</button>';
+    d.querySelector('button').onclick = () => { images.splice(i, 1); drawThumbs(); };
+    box.appendChild(d);
+  });
+  $('#btnOcr').disabled = images.length === 0;
+}
+
+/* ---------- 3. OCR ---------- */
+// 読み取りやすいように 拡大＋グレースケール＋コントラスト強調
+function preprocess(dataUrl) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const target = 1800;
+      const sc = Math.min(3, Math.max(1, target / Math.max(img.width, img.height)));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+      const x = c.getContext('2d');
+      x.drawImage(img, 0, 0, c.width, c.height);
+      const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+      let min = 255, max = 0;
+      for (let i = 0; i < p.length; i += 4) {
+        const g = (p[i] * .299 + p[i + 1] * .587 + p[i + 2] * .114) | 0;
+        p[i] = p[i + 1] = p[i + 2] = g;
+        if (g < min) min = g; if (g > max) max = g;
+      }
+      const rng = Math.max(1, max - min);
+      for (let i = 0; i < p.length; i += 4) {
+        let g = (p[i] - min) * 255 / rng;
+        g = g < 0 ? 0 : g > 255 ? 255 : g;
+        p[i] = p[i + 1] = p[i + 2] = g;
+      }
+      x.putImageData(d, 0, 0);
+      res(c);
+    };
+    img.src = dataUrl;
+  });
+}
+$('#btnOcr').onclick = async () => {
+  $('#btnOcr').disabled = true;
+  const msg = $('#ocrMsg'), bar = $('#bar');
+  try {
+    if (!worker) {
+      msg.textContent = '日本語の文字データを準備しています…（初回のみ時間がかかります）';
+      worker = await Tesseract.createWorker(['jpn', 'eng'], 1, {
+        logger: m => { if (m.status === 'recognizing text') bar.style.width = Math.round(m.progress * 100) + '%'; }
+      });
+      await worker.setParameters({ preserve_interword_spaces: '1' });
+    }
+    let all = '';
+    for (let i = 0; i < images.length; i++) {
+      msg.textContent = '読み取り中… ' + (i + 1) + ' / ' + images.length + ' 枚目';
+      bar.style.width = '0%';
+      const canvas = await preprocess(images[i].dataUrl);
+      const { data } = await worker.recognize(canvas);
+      all += (all ? '\n' : '') + data.text;
+    }
+    bar.style.width = '100%';
+    $('#ocrText').value = repairOcr(normalize(all));
+    const found = parseText(all);
+    msg.textContent = '読み取り完了。' + found + ' 件の予定候補が見つかりました。' +
+      (found === 0 ? '「読み取った文字を見る」を開いて手で直せます。' : '');
+    if (found) document.querySelector('#events').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    msg.textContent = '読み取りに失敗しました: ' + e.message;
+  }
+  $('#btnOcr').disabled = false;
+};
+$('#btnReparse').onclick = () => {
+  const n = parseText($('#ocrText').value);
+  $('#ocrMsg').textContent = n + ' 件の予定候補を抜き出しました。';
+};
+
+/* ============================================================
+   4. 日付・時刻の抽出
+   ============================================================ */
+function normalize(s) {
+  return s
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[：]/g, ':').replace(/[／]/g, '/').replace(/[〜～]/g, '~')
+    .replace(/[　]/g, ' ');
+}
+// OCRは「年月日」を記号やアルファベットに読み違えやすいので直す
+// 例: 2026%F8A21H → 2026年8月21日
+function repairOcr(s) {
+  s = s.replace(/(\d{4})\s*(?:%F|%f|车|牛|军|拝|钎|ff)/g, '$1年');
+  s = s.replace(/(^|[^\d])(\d{1,2})\s*[AＡ用冃丹]\s*(\d{1,2})\s*[HＨ曰⽇]/g, '$1$2月$3日');
+  s = s.replace(/(^|[^\d])(\d{4})\s*[^\d\s\u3040-\u30ff\u4e00-\u9fff]{1,2}\s*(\d{1,2})\s*[^\d\s\u3040-\u30ff\u4e00-\u9fff]{1,2}\s*(\d{1,2})(?!\d)/g, '$1$2年$3月$4日');
+  s = s.replace(/(\d{1,2})\s*[:：]\s*[Oo][Oo0]/g, '$1:00');
+  return s;
+}
+const WD = ['日', '月', '火', '水', '木', '金', '土'];
+const DASH = '\\-\\u2010\\u2011\\u2012\\u2013\\u2014\\u2015\\u2212\\u30fc~';
+
+function inferYear(m, d) {
+  const now = new Date();
+  let y = now.getFullYear();
+  const diff = (new Date(y, m - 1, d) - now) / 86400000;
+  if (diff < -120) y += 1;
+  return y;
+}
+function scanDates(line, ctx) {
+  const hits = [];   // {s,e,y,m,d}
+  const claimed = [];
+  const overlap = (s, e) => claimed.some(c => s < c[1] && e > c[0]);
+  const push = (s, e, y, m, d) => {
+    if (m < 1 || m > 12 || d < 1 || d > 31) return;
+    if (overlap(s, e)) return;
+    claimed.push([s, e]); hits.push({ s, e, y, m, d });
+  };
+  let m;
+  // 令和7年8月21日
+  const re0 = /令和\s*(\d{1,2}|元)\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日?/g;
+  while ((m = re0.exec(line))) push(m.index, re0.lastIndex, 2018 + (m[1] === '元' ? 1 : +m[1]), +m[2], +m[3]);
+  // 2026年8月21日 / 2026/8/21 / 2026-08-21
+  const re1 = /(\d{4})\s*[年\/\-\.]\s*(\d{1,2})\s*[月\/\-\.]\s*(\d{1,2})\s*日?/g;
+  while ((m = re1.exec(line))) push(m.index, re1.lastIndex, +m[1], +m[2], +m[3]);
+  // 8月21日 / 8/21 / 8.21
+  const re2 = /(\d{1,2})\s*[月\/\.]\s*(\d{1,2})\s*日?/g;
+  while ((m = re2.exec(line))) push(m.index, re2.lastIndex, null, +m[1], +m[2]);
+  // 21日（月の見出しがある場合だけ有効）
+  const re3 = /(\d{1,2})\s*日(?![間々])/g;
+  while ((m = re3.exec(line))) { if (ctx.month) push(m.index, re3.lastIndex, ctx.year, ctx.month, +m[1]); }
+  hits.sort((a, b) => a.s - b.s);
+  hits.forEach(h => { if (!h.y) h.y = ctx.year && ctx.month === h.m ? ctx.year : inferYear(h.m, h.d); });
+  return hits;
+}
+function scanTimes(line) {
+  const out = { spans: [], sh: null, sm: 0, eh: null, em: 0 };
+  const mm = v => v === '半' ? 30 : (v ? +v : 0);
+  const ap = (a, h) => (a === '午後' || a === 'PM' || a === 'pm') && h < 12 ? h + 12
+    : (a === '午前' || a === 'AM' || a === 'am') && h === 12 ? 0 : h;
+  const RT = new RegExp('(午前|午後|AM|PM|am|pm)?\\s*(\\d{1,2})\\s*(?::|時)\\s*(\\d{1,2}|半)?\\s*分?\\s*(?:[' + DASH + ']|から|より)\\s*(午前|午後|AM|PM|am|pm)?\\s*(\\d{1,2})\\s*(?::|時)\\s*(\\d{1,2}|半)?\\s*分?', 'g');
+  let m = RT.exec(line);
+  if (m) {
+    out.spans.push([m.index, RT.lastIndex]);
+    out.sh = ap(m[1], +m[2]); out.sm = mm(m[3]);
+    out.eh = ap(m[4] || m[1], +m[5]); out.em = mm(m[6]);
+    return out;
+  }
+  const ST = /(午前|午後|AM|PM|am|pm)?\s*(\d{1,2})\s*(?::|時)\s*(\d{1,2}|半)?\s*分?/g;
+  m = ST.exec(line);
+  if (m) {
+    out.spans.push([m.index, ST.lastIndex]);
+    out.sh = ap(m[1], +m[2]); out.sm = mm(m[3]);
+  }
+  return out;
+}
+function cleanTitle(line, spans) {
+  let s = line;
+  spans.slice().sort((a, b) => b[0] - a[0]).forEach(([a, b]) => { s = s.slice(0, a) + ' ' + s.slice(b); });
+  // 曜日の表記だけを消す（「最終日」の日 などを消さないよう限定）
+  s = s.replace(/[（(【\[]\s*.?\s*[）)】\]]/g, ' ');
+  s = s.replace(/[月火水木金土日]曜日?/g, ' ');
+  s = s.replace(/(^|[\s\/･・])[月火水木金土日](?=$|[\s\/･・])/g, '$1 ');
+  s = s.replace(/[\s・:：|｜\/―—\-~@＠]+/g, ' ');
+  s = s.replace(/(?:より|から|まで|開始|スタート)\s*$/g, '');
+  s = s.replace(/^[\s\-~･,、。]+|[\s\-~･,、。]+$/g, '').trim();
+  return s;
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function ymd(y, m, d) { return y + '-' + pad(m) + '-' + pad(d); }
+
+function parseText(text) {
+  const lines = repairOcr(normalize(text)).split(/\r?\n/);
+  const ctx = { year: null, month: null };
+  const found = [];
+  let fallback = '';
+  for (const l of lines) {
+    const t = l.trim();
+    if (t.length >= 2 && !/^[\d\s\/\-\.:]+$/.test(t)) { fallback = t.slice(0, 40); break; }
+  }
+  lines.forEach((raw, idx) => {
+    const line = raw.replace(/\s+$/, '');
+    if (!line.trim()) return;
+    // 「2026年8月」「8月」だけの見出し → 以降の「21日」の月として使う
+    const hy = line.match(/(\d{4})\s*年/); if (hy) ctx.year = +hy[1];
+    const hm = line.match(/(\d{1,2})\s*月(?!\s*\d{1,2}\s*[日\/\.])/); if (hm) ctx.month = +hm[1];
+
+    const dates = scanDates(line, ctx);
+    if (!dates.length) return;
+    ctx.month = dates[0].m; ctx.year = dates[0].y;
+
+    const spans = dates.map(d => [d.s, d.e]);
+    const masked = (() => {
+      let s = line;
+      spans.slice().sort((a, b) => b[0] - a[0]).forEach(([a, b]) => { s = s.slice(0, a) + ' '.repeat(b - a) + s.slice(b); });
+      return s;
+    })();
+    const tm = scanTimes(masked);
+    let title = cleanTitle(line, spans.concat(tm.spans));
+    if (title.replace(/\s/g, '').length < 2) {
+      // 見出しは日付行の「上」にあることが多いので前の行を優先。日付を含む行は使わない
+      const near = [lines[idx - 1], lines[idx + 1]].map(x => (x || '').trim());
+      const cand = near.find(x => x &&
+        x.replace(/[\s\d\/\-\.:年月日]/g, '').length >= 2 &&
+        scanDates(x, { year: null, month: null }).length === 0);
+      title = cand ? cleanTitle(cand, []).slice(0, 40) || fallback : (fallback || '予定');
+    }
+
+    // 「8/21 ~ 8/23」のような期間
+    const isRange = dates.length === 2 &&
+      new RegExp('^\\s*(?:[' + DASH + ']|から|より|至)\\s*$').test(line.slice(dates[0].e, dates[1].s));
+
+    if (isRange) {
+      found.push(mkEvent(title, dates[0], dates[1], tm, line));
+    } else {
+      dates.forEach(d => found.push(mkEvent(title, d, d, tm, line)));
+    }
+  });
+  // 重複除去
+  const seen = new Set();
+  events = found.filter(e => {
+    const k = e.date + e.start + e.title;
+    if (seen.has(k)) return false; seen.add(k); return true;
+  });
+  renderEvents();
+  return events.length;
+}
+function mkEvent(title, d1, d2, tm, src) {
+  const allDay = tm.sh === null;
+  let st = '', en = '';
+  if (!allDay) {
+    st = pad(tm.sh) + ':' + pad(tm.sm);
+    if (tm.eh !== null) en = pad(tm.eh) + ':' + pad(tm.em);
+    else en = pad((tm.sh + 1) % 24) + ':' + pad(tm.sm);
+  }
+  return {
+    on: true, title: title.slice(0, 60),
+    date: ymd(d1.y, d1.m, d1.d), dateEnd: ymd(d2.y, d2.m, d2.d),
+    allDay, start: st, end: en, place: '', memo: '', src
+  };
+}
+
+/* ---------- 5. 予定カード ---------- */
+function wdOf(s) { const d = new Date(s + 'T00:00:00'); return isNaN(d) ? '' : '（' + WD[d.getDay()] + '）'; }
+function renderEvents() {
+  const box = $('#events');
+  $('#evCount').textContent = events.length + '件';
+  if (!events.length) { box.innerHTML = '<div class="empty">まだ予定がありません</div>'; refreshRegisterBtn(); return; }
+  box.innerHTML = '';
+  events.forEach((ev, i) => {
+    const el = document.createElement('div');
+    el.className = 'ev' + (ev.on ? '' : ' off');
+    el.innerHTML = `
+      <div class="top">
+        <input type="checkbox" ${ev.on ? 'checked' : ''} data-a="on">
+        <span class="when">${ev.date}${wdOf(ev.date)}${ev.allDay ? ' 終日' : ' ' + ev.start + '〜' + ev.end}</span>
+        <button class="del">削除</button>
+      </div>
+      <label class="f">予定のタイトル</label>
+      <input data-a="title" value="${esc(ev.title)}">
+      <div class="row">
+        <div><label class="f">日付</label><input type="date" data-a="date" value="${ev.date}"></div>
+        <div><label class="f">終了日</label><input type="date" data-a="dateEnd" value="${ev.dateEnd}"></div>
+      </div>
+      <label class="f"><input type="checkbox" data-a="allDay" ${ev.allDay ? 'checked' : ''}> 終日の予定にする</label>
+      <div class="row" ${ev.allDay ? 'style="display:none"' : ''} data-times>
+        <div><label class="f">開始</label><input type="time" data-a="start" value="${ev.start}"></div>
+        <div><label class="f">終了</label><input type="time" data-a="end" value="${ev.end}"></div>
+      </div>
+      <label class="f">場所（任意）</label>
+      <input data-a="place" value="${esc(ev.place)}">
+      <div class="src">読み取り元: ${esc(ev.src)}</div>`;
+    el.querySelectorAll('[data-a]').forEach(inp => {
+      const a = inp.dataset.a;
+      inp.addEventListener(inp.type === 'checkbox' ? 'change' : 'input', () => {
+        ev[a] = inp.type === 'checkbox' ? inp.checked : inp.value;
+        if (a === 'date' && ev.dateEnd < ev.date) ev.dateEnd = ev.date;
+        if (a === 'on' || a === 'allDay' || a === 'date' || a === 'start' || a === 'end') renderEvents();
+      });
+    });
+    el.querySelector('.del').onclick = () => { events.splice(i, 1); renderEvents(); };
+    box.appendChild(el);
+  });
+  refreshRegisterBtn();
+}
+function esc(s) { return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+$('#btnAdd').onclick = () => {
+  const t = new Date(), d = ymd(t.getFullYear(), t.getMonth() + 1, t.getDate());
+  events.push({ on: true, title: '', date: d, dateEnd: d, allDay: false, start: '09:00', end: '10:00', place: '', memo: '', src: '手入力' });
+  renderEvents();
+};
+function refreshRegisterBtn() {
+  const n = events.filter(e => e.on).length;
+  $('#btnRegister').disabled = n === 0;
+  $('#btnRegister').textContent = n ? `カレンダーに ${n}件 登録する` : 'カレンダーに登録する';
+}
+
+/* ---------- 6. 登録 ---------- */
+function plusDay(s, n) { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return ymd(d.getFullYear(), d.getMonth() + 1, d.getDate()); }
+function body(ev) {
+  const b = { summary: ev.title || '（無題の予定）', description: '画像から自動登録\n' + (ev.src || '') };
+  if (ev.place) b.location = ev.place;
+  if (ev.allDay) {
+    b.start = { date: ev.date };
+    b.end = { date: plusDay(ev.dateEnd < ev.date ? ev.date : ev.dateEnd, 1) };
+  } else {
+    let sd = ev.date + 'T' + (ev.start || '09:00') + ':00+09:00';
+    let ed = (ev.dateEnd || ev.date) + 'T' + (ev.end || ev.start || '10:00') + ':00+09:00';
+    if (new Date(ed) <= new Date(sd)) ed = plusDay(ev.dateEnd || ev.date, 1) + 'T' + (ev.end || '10:00') + ':00+09:00';
+    b.start = { dateTime: sd, timeZone: 'Asia/Tokyo' };
+    b.end = { dateTime: ed, timeZone: 'Asia/Tokyo' };
+  }
+  return b;
+}
+$('#btnRegister').onclick = () => getToken(async (tk) => {
+  const targets = events.filter(e => e.on);
+  if (!targets.length) return;
+  const cal = encodeURIComponent($('#calSel').value || 'primary');
+  const log = $('#log'); log.innerHTML = '';
+  $('#btnRegister').disabled = true;
+  let ok = 0;
+  for (const ev of targets) {
+    const line = document.createElement('div');
+    line.textContent = '登録中… ' + ev.date + ' ' + (ev.title || '（無題）');
+    log.appendChild(line);
+    try {
+      const r = await fetch('https://www.googleapis.com/calendar/v3/calendars/' + cal + '/events', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + tk, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body(ev))
+      });
+      if (r.ok) {
+        ok++; ev.on = false;
+        line.className = 'okk';
+        line.textContent = '✓ 登録しました: ' + ev.date + ' ' + (ev.title || '（無題）');
+      } else {
+        const t = await r.text();
+        line.className = 'ng';
+        line.textContent = '× 失敗: ' + ev.date + ' ' + (ev.title || '') + ' / ' + r.status + ' ' + t.slice(0, 160);
+      }
+    } catch (e) {
+      line.className = 'ng';
+      line.textContent = '× 通信エラー: ' + e.message;
+    }
+  }
+  renderEvents();
+  const s = document.createElement('div');
+  s.className = ok === targets.length ? 'okk' : 'ng';
+  s.textContent = '── ' + ok + ' / ' + targets.length + ' 件を登録しました';
+  log.appendChild(s);
+});
+</script>
+</body>
+</html>
