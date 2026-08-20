@@ -6,4 +6,4 @@
 - OCR: Tesseract.js（日本語）— 画像はブラウザ内で処理され、どこにも送信されません
 - 登録先: Google Calendar API（自分のGoogleアカウントで認証）
 
-初期設定は [SETUP.md](SETUP.md) を参照。
+**Google Cloud の設定は不要**（1件ずつ「保存」を押す方式で使えます）。一括自動登録にしたい場合だけ [SETUP.md](SETUP.md) を参照。

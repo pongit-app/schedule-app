@@ -27,7 +27,7 @@
     margin:0; background:var(--bg); color:var(--fg);
     font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
     font-size:16px; line-height:1.6;
-    padding:0 0 100px; padding-bottom:calc(100px + env(safe-area-inset-bottom));
+    padding:0 0 140px; padding-bottom:calc(140px + env(safe-area-inset-bottom));
   }
   header{
     position:sticky; top:0; z-index:20; background:rgba(255,255,255,.94);
@@ -93,6 +93,13 @@
   .empty{color:var(--sub); font-size:14px; text-align:center; padding:22px 0}
   .badge{display:inline-block; font-size:11px; background:var(--card2); border:1px solid var(--line2);
          border-radius:99px; padding:2px 9px; color:var(--sub); margin-left:6px}
+  .subrow{display:flex; align-items:center; gap:10px; margin-top:8px}
+  .subrow button{white-space:nowrap; flex:0 0 auto}
+  .subrow span{font-size:11px; color:var(--sub); line-height:1.4}
+  .done{font-size:11px; color:#0B7A51; border:1px solid #B7E2CE; background:#EAF7F1;
+        border-radius:99px; padding:2px 8px; margin-left:6px; white-space:nowrap}
+  details#secAuth>summary{padding:12px 14px; background:var(--card); border:1px solid var(--line);
+        border-radius:var(--radius); box-shadow:var(--shadow); font-weight:700; color:var(--fg); font-size:13.5px}
   .src{font-size:11.5px; color:var(--sub); margin-top:8px; word-break:break-all}
 </style>
 </head>
@@ -104,21 +111,8 @@
 
 <main>
 
-<section id="secAuth">
-  <h2><span class="step">1</span>Googleカレンダー連携</h2>
-  <label class="f">クライアントID（初回だけ貼り付け）</label>
-  <input id="clientId" placeholder="xxxxxxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
-  <div class="row" style="margin-top:10px">
-    <button id="btnAuth">Googleと連携する</button>
-    <button id="btnLogout" class="sub" style="flex:0 0 90px">解除</button>
-  </div>
-  <label class="f">登録先カレンダー</label>
-  <select id="calSel"><option value="primary">メインカレンダー</option></select>
-  <div class="hint">クライアントIDの取り方は <a href="https://github.com/pongit-app/schedule-app/blob/main/SETUP.md" target="_blank">初期設定ガイド</a> を見てね。一度入れたらこの端末に保存されるので次回から入力不要です。</div>
-</section>
-
 <section>
-  <h2><span class="step">2</span>画像を選ぶ</h2>
+  <h2><span class="step">1</span>画像を選ぶ</h2>
   <input type="file" id="file" accept="image/*" multiple hidden>
   <button id="btnPick">📷 写真・スクショを選ぶ</button>
   <div class="thumbs" id="thumbs"></div>
@@ -126,7 +120,7 @@
 </section>
 
 <section>
-  <h2><span class="step">3</span>文字を読み取る</h2>
+  <h2><span class="step">2</span>文字を読み取る</h2>
   <button id="btnOcr" class="go" disabled>🔍 読み取って予定を抜き出す</button>
   <div class="bar"><i id="bar"></i></div>
   <div class="hint" id="ocrMsg">画像を選ぶと押せるようになります。初回は日本語データの読み込みで20秒ほどかかります。</div>
@@ -138,16 +132,40 @@
 </section>
 
 <section>
-  <h2><span class="step">4</span>予定を確認・修正<span class="badge" id="evCount">0件</span></h2>
+  <h2><span class="step">3</span>予定を確認・修正<span class="badge" id="evCount">0件</span></h2>
   <div id="events"><div class="empty">まだ予定がありません</div></div>
   <button id="btnAdd" class="sub small">＋ 手入力で1件追加</button>
   <div class="log" id="log"></div>
 </section>
 
+<details id="secAuth">
+  <summary>⚙️ Googleと連携して「一括自動登録」にする（設定が必要・やらなくてもOK）</summary>
+  <section style="margin-top:10px">
+    <h2>Googleカレンダー連携</h2>
+    <div class="hint" style="margin:0 0 12px">
+      連携すると、確認画面なしで<b>まとめて一気に登録</b>できます。ただし
+      <a href="https://github.com/pongit-app/schedule-app/blob/main/SETUP.md" target="_blank">Google Cloud での初期設定</a>
+      が必要で、スマホでは操作しづらいのでパソコン推奨です。<b>設定しなくてもアプリは使えます。</b>
+    </div>
+    <label class="f">クライアントID</label>
+    <input id="clientId" placeholder="xxxxxxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+    <div class="row" style="margin-top:10px">
+      <button id="btnAuth">Googleと連携する</button>
+      <button id="btnLogout" class="sub" style="flex:0 0 90px">解除</button>
+    </div>
+    <label class="f">登録先カレンダー</label>
+    <select id="calSel"><option value="primary">メインカレンダー</option></select>
+  </section>
+</details>
+
 </main>
 
 <div class="fixed">
   <button id="btnRegister" class="go" disabled>カレンダーに登録する</button>
+  <div class="subrow">
+    <button id="btnIcs" class="sub small" disabled>📄 まとめて追加</button>
+    <span id="modeNote">Googleカレンダーを開いて「保存」を押す方式です</span>
+  </div>
 </div>
 
 <script>
@@ -498,7 +516,7 @@ function renderEvents() {
     el.innerHTML = `
       <div class="top">
         <input type="checkbox" ${ev.on ? 'checked' : ''} data-a="on">
-        <span class="when">${ev.date}${wdOf(ev.date)}${ev.allDay ? ' 終日' : ' ' + ev.start + '〜' + ev.end}</span>
+        <span class="when">${ev.date}${wdOf(ev.date)}${ev.allDay ? ' 終日' : ' ' + ev.start + '〜' + ev.end}${ev.done ? '<span class="done">開きました</span>' : ''}</span>
         <button class="del">削除</button>
       </div>
       <label class="f">予定のタイトル</label>
@@ -534,10 +552,19 @@ $('#btnAdd').onclick = () => {
   events.push({ on: true, title: '', date: d, dateEnd: d, allDay: false, start: '09:00', end: '10:00', place: '', memo: '', src: '手入力' });
   renderEvents();
 };
+const linked = () => !!(token && tokenExp > Date.now() + 60000);
 function refreshRegisterBtn() {
   const n = events.filter(e => e.on).length;
-  $('#btnRegister').disabled = n === 0;
-  $('#btnRegister').textContent = n ? `カレンダーに ${n}件 登録する` : 'カレンダーに登録する';
+  const b = $('#btnRegister');
+  b.disabled = n === 0;
+  $('#btnIcs').disabled = n === 0;
+  if (linked()) {
+    b.textContent = n ? `カレンダーに ${n}件 まとめて登録` : 'カレンダーに登録する';
+    $('#modeNote').textContent = '連携ずみ：確認画面なしで一括登録します';
+  } else {
+    b.textContent = n ? `Googleカレンダーで開く（あと${n}件）` : 'カレンダーに登録する';
+    $('#modeNote').textContent = '1件ずつ開いて「保存」を押す方式（設定不要）';
+  }
 }
 
 /* ---------- 6. 登録 ---------- */
@@ -557,7 +584,73 @@ function body(ev) {
   }
   return b;
 }
-$('#btnRegister').onclick = () => getToken(async (tk) => {
+/* 設定なしで使う方式: Googleカレンダーの入力済み画面を開く */
+function gDates(ev) {
+  const d = x => x.replace(/-/g, '');
+  if (ev.allDay) return d(ev.date) + '/' + d(plusDay(ev.dateEnd < ev.date ? ev.date : ev.dateEnd, 1));
+  const st = ev.start || '09:00';
+  let ed = ev.dateEnd || ev.date, et = ev.end || '10:00';
+  if (new Date(ed + 'T' + et) <= new Date(ev.date + 'T' + st)) ed = plusDay(ed, 1);
+  return d(ev.date) + 'T' + st.replace(':', '') + '00/' + d(ed) + 'T' + et.replace(':', '') + '00';
+}
+function gcalUrl(ev) {
+  const p = new URLSearchParams({
+    action: 'TEMPLATE', text: ev.title || '（無題の予定）', dates: gDates(ev), ctz: 'Asia/Tokyo'
+  });
+  if (ev.place) p.set('location', ev.place);
+  p.set('details', '画像から読み取り\n' + (ev.src || ''));
+  return 'https://calendar.google.com/calendar/render?' + p.toString();
+}
+function openNext() {
+  const ev = events.find(e => e.on);
+  if (!ev) return;
+  const url = gcalUrl(ev);
+  const w = window.open(url, '_blank');
+  if (!w) { location.href = url; return; }
+  ev.on = false; ev.done = true;
+  renderEvents();
+}
+/* まとめてカレンダーに取り込むファイル(.ics) */
+function icsEsc(v) { return String(v || '').replace(/([,;\\])/g, '\\$1').replace(/\r?\n/g, '\\n'); }
+function toIcs(list) {
+  const d = x => x.replace(/-/g, '');
+  const utc = (dd, tt) => new Date(dd + 'T' + tt + ':00+09:00').toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const o = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//yotei-yomitori//JP', 'CALSCALE:GREGORIAN'];
+  list.forEach((ev, i) => {
+    o.push('BEGIN:VEVENT', 'UID:' + now + '-' + i + '@yotei-yomitori', 'DTSTAMP:' + now);
+    if (ev.allDay) {
+      o.push('DTSTART;VALUE=DATE:' + d(ev.date));
+      o.push('DTEND;VALUE=DATE:' + d(plusDay(ev.dateEnd < ev.date ? ev.date : ev.dateEnd, 1)));
+    } else {
+      const st = ev.start || '09:00';
+      let ed = ev.dateEnd || ev.date, et = ev.end || '10:00';
+      if (new Date(ed + 'T' + et) <= new Date(ev.date + 'T' + st)) ed = plusDay(ed, 1);
+      o.push('DTSTART:' + utc(ev.date, st), 'DTEND:' + utc(ed, et));
+    }
+    o.push('SUMMARY:' + icsEsc(ev.title || '（無題の予定）'));
+    if (ev.place) o.push('LOCATION:' + icsEsc(ev.place));
+    o.push('DESCRIPTION:' + icsEsc('画像から読み取り / ' + (ev.src || '')), 'END:VEVENT');
+  });
+  o.push('END:VCALENDAR');
+  return o.join('\r\n');
+}
+$('#btnIcs').onclick = () => {
+  const list = events.filter(e => e.on);
+  if (!list.length) return;
+  const blob = new Blob([toIcs(list)], { type: 'text/calendar;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'yotei.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+  const g = document.createElement('div');
+  g.textContent = 'ファイルを作りました。iPhoneは「ダウンロード」から開いて「すべてのイベントを追加」を押してください。';
+  $('#log').prepend(g);
+};
+
+$('#btnRegister').onclick = () => { if (linked()) registerViaApi(); else openNext(); };
+const registerViaApi = () => getToken(async (tk) => {
   const targets = events.filter(e => e.on);
   if (!targets.length) return;
   const cal = encodeURIComponent($('#calSel').value || 'primary');
